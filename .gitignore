@@ -10,11 +10,6 @@ npm-debug.log*
 .vscode/
 .idea/
 
-# Docker and build artifacts
-.dockerignore
-Dockerfile
-docker-compose.yml
-
 # Build / coverage
 coverage/
 dist/
