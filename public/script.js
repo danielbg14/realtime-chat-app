@@ -59,6 +59,7 @@ joinForm.addEventListener("submit", (e) => {
 function sendMessage() {
   const msg = messageInput.value.trim();
   if (msg) {
+    console.log("📤 Sending message:", msg);
     socket.emit("chatMessage", msg);
     messageInput.value = "";
     typingIndicator.textContent = "";
@@ -89,6 +90,7 @@ messageInput.addEventListener("input", () => {
 
 // Receive message
 socket.on("message", (data) => {
+  console.log("📩 Message received:", data);
   // Clear typing indicator when message arrives
   typingIndicator.textContent = "";
   clearTimeout(typingIndicatorTimeout);
@@ -111,12 +113,31 @@ socket.on("message", (data) => {
   messagesContainer.scrollTop = messagesContainer.scrollHeight;
 });
 
+// Load message history when joining room
+socket.on("messageHistory", (data) => {
+  console.log(`📚 Loading ${data.count} messages from history`);
+  messagesContainer.innerHTML = "";
+  
+  data.messages.forEach((msg) => {
+    const messageEl = document.createElement("div");
+    messageEl.className = "message";
+    messageEl.innerHTML = `
+      <div class="message-username">${msg.username}</div>
+      <div class="message-text">${msg.content}</div>
+      <div class="message-time">${msg.timestamp}</div>
+    `;
+    messagesContainer.appendChild(messageEl);
+  });
+  
+  messagesContainer.scrollTop = messagesContainer.scrollHeight;
+});
+
 // Update users list
 socket.on("roomUsers", (data) => {
   usersList.innerHTML = "";
-  data.users.forEach((user) => {
+  data.users.forEach((username) => {
     const li = document.createElement("li");
-    li.textContent = user.username;
+    li.textContent = typeof username === 'string' ? username : username.username;
     usersList.appendChild(li);
   });
 
@@ -147,4 +168,19 @@ socket.on("userTyping", (data) => {
       typingIndicator.textContent = "";
     }, 3000);
   }
+});
+
+// Error handling
+socket.on("error", (error) => {
+  console.error("❌ Socket error:", error);
+  errorMessage.textContent = error.message || "An error occurred";
+});
+
+// Connection events for debugging
+socket.on("connect", () => {
+  console.log("✓ Connected to server");
+});
+
+socket.on("disconnect", () => {
+  console.log("✗ Disconnected from server");
 });

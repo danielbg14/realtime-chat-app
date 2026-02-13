@@ -78,6 +78,24 @@ body {
   transform: translateY(0);
 }
 
+.logout-btn {
+  width: 100%;
+  padding: 10px;
+  margin-top: 10px;
+  background: #ff6b6b;
+  border: none;
+  color: #fff;
+  font-weight: 600;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background 0.3s;
+}
+
+.logout-btn:hover {
+  background: #ff5252;
+}
+
 .chat-container {
   display: none;
   background: #2d2d44;
@@ -98,6 +116,25 @@ body {
   background: #1e1e2e;
   border-right: 1px solid #444;
   padding: 20px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.room-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #00d4ff;
+  margin-bottom: 20px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #444;
+}
+
+.user-info {
+  font-size: 12px;
+  color: #888;
+  margin-bottom: 15px;
+}
   overflow-y: auto;
   border-radius: 10px 0 0 10px;
 }
@@ -154,6 +191,66 @@ body {
 .message {
   margin-bottom: 15px;
   animation: slideIn 0.3s ease-in;
+}
+
+/* Message controls (edit/delete) */
+.message {
+  position: relative;
+}
+
+.message-controls {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  z-index: 5;
+}
+
+.message-controls button {
+  border: 1px solid rgba(255,255,255,0.06);
+  background: rgba(255,255,255,0.02);
+  color: #dcdcdc;
+  padding: 6px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.12s, transform 0.08s, border-color 0.12s;
+}
+
+.message-controls button:hover {
+  transform: translateY(-2px);
+}
+
+.msg-edit-btn {
+  background: rgba(0,212,255,0.06);
+  border-color: rgba(0,212,255,0.12);
+  color: #00d4ff;
+}
+
+.msg-del-btn {
+  background: rgba(255,107,107,0.05);
+  border-color: rgba(255,107,107,0.12);
+  color: #ff6b6b;
+}
+
+/* On small screens, place controls below message text to avoid overlap */
+@media (max-width: 480px) {
+  .message {
+    padding-right: 0;
+  }
+
+  .message-controls {
+    position: static;
+    margin-top: 8px;
+    justify-content: flex-end;
+  }
+
+  .message-controls button {
+    padding: 8px 10px;
+    font-size: 13px;
+  }
 }
 
 @keyframes slideIn {

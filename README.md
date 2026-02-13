@@ -128,13 +128,35 @@ Client → Socket.IO → Server → Room Broadcast → Connected Clients (room)
 
 ---
 
-## Possible Improvements
+## Improvements
 
-* Persist messages with a database (e.g., MongoDB)
-* Add authentication (JWT-based sessions)
-* Implement private messaging
-* Add message editing/deletion
-* Deploy with Docker
+**Completed**
+
+- ✅ Persist messages with a database (MongoDB)
+- ✅ Add authentication (JWT-based sessions)
+- ✅ Add message editing/deletion
+- ✅ Deploy with Docker
+
+**Planned / Ideas**
+
+- ☐ Implement private messaging
+- ☐ Admin moderation / rate limiting / production hardening
+
+---
+
+**Environment**
+
+- **Use `.env` for configuration:** Copy `.env.example` to `.env` and fill in your values.
+- **Never commit** your `.env` file; it often contains secrets like `JWT_SECRET` and DB URIs.
+
+Example quick start using the example file:
+
+```bash
+cp .env.example .env
+# Edit .env and set MONGODB_URI and JWT_SECRET
+npm install
+npm start
+```
 
 ---
 

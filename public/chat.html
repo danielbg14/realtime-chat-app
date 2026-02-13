@@ -3,22 +3,36 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Real-Time Chat - Login</title>
+    <title>Real-Time Chat</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <link rel="stylesheet" href="style.css" />
   </head>
 
   <body>
-    <p>Redirecting to login page...</p>
-    <script>
-      // Redirect to auth page
-      window.location.href = '/auth.html';
-    </script>
-  </body>
-</html>
+    <div class="join-container" id="joinContainer">
+      <h1>💬 Chat</h1>
+      <form id="joinForm">
+        <div class="form-group">
+          <label for="room">Room</label>
+          <input
+            type="text"
+            id="room"
+            placeholder="Enter room name"
+            required
+          />
+        </div>
+        <button type="submit" class="join-btn">Join Chat</button>
+        <button type="button" class="logout-btn" onclick="logout()">Logout</button>
+        <div class="error-message" id="errorMessage"></div>
+      </form>
+    </div>
 
     <div class="chat-container" id="chatContainer">
       <div class="sidebar">
         <div class="room-title" id="roomDisplay"></div>
+        <div class="user-info" id="userInfo"></div>
         <ul class="users-list" id="usersList"></ul>
+        <button class="logout-btn" onclick="logout()">Logout</button>
       </div>
 
       <div class="main-chat">
@@ -43,11 +57,11 @@
             placeholder="Type a message..."
             autocomplete="off"
           />
-          <button class="send-btn" id="sendBtn">Send</button>
+          <button id="sendBtn">Send</button>
         </div>
       </div>
     </div>
 
-    <script src="script.js"></script>
+    <script src="chat-script.js"></script>
   </body>
 </html>

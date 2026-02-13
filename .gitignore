@@ -2,3 +2,23 @@ node_modules/
 .DS_Store
 *.log
 npm-debug.log*
+# Environment files
+.env
+.env.*.local
+
+# Editor directories
+.vscode/
+.idea/
+
+# Docker and build artifacts
+.dockerignore
+Dockerfile
+docker-compose.yml
+
+# Build / coverage
+coverage/
+dist/
+build/
+
+# OS files
+Thumbs.db
