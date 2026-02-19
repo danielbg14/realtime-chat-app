@@ -9,6 +9,8 @@ const User = require('./models/User');
 const Message = require('./models/Message');
 const { verifySocketToken, generateToken } = require('./middleware/auth');
 const authRoutes = require('./routes/auth');
+const boardManager = require('./boards');
+const { log, error: debugError, warn } = require('./debug');
 
 // Load environment variables from .env file if available
 // For production, set MONGODB_URI as an environment variable
@@ -44,10 +46,10 @@ async function connectDatabase() {
       useNewUrlParser: true,
       useUnifiedTopology: true,
     });
-    console.log('✓ Connected to MongoDB');
+    log('Connected to MongoDB');
   } catch (error) {
-    console.error('✗ MongoDB connection error:', error.message);
-    console.error('Please ensure MongoDB is running and MONGODB_URI is correctly set.');
+    debugError('MongoDB connection error:', error.message);
+    debugError('Please ensure MongoDB is running and MONGODB_URI is correctly set.');
     process.exit(1);
   }
 }
@@ -56,7 +58,7 @@ async function connectDatabase() {
  * Socket.io connection handling
  */
 io.on('connection', (socket) => {
-  console.log(`New client connected: ${socket.id}`);
+  log(`New client connected: ${socket.id}`);
 
   /**
    * Verify JWT token on connection
@@ -65,7 +67,7 @@ io.on('connection', (socket) => {
   const decodedToken = verifySocketToken(socket);
 
   if (!decodedToken) {
-    console.warn(`⚠️  Socket ${socket.id} disconnected: Invalid token`);
+    warn(`⚠️  Socket ${socket.id} disconnected: Invalid token`);
     socket.emit('error', { message: 'Invalid token. Please login again.' });
     socket.disconnect();
     return;
@@ -84,7 +86,7 @@ io.on('connection', (socket) => {
    */
   socket.on('joinRoom', async (room) => {
     try {
-      console.log(`\n🔌 Join request: userId='${socket.userId}', username='${socket.username}', room='${room}'`);
+      log(`\n🔌 Join request: userId='${socket.userId}', username='${socket.username}', room='${room}'`);
 
       if (!room || typeof room !== 'string') {
         socket.emit('error', { message: 'Invalid room name' });
@@ -96,7 +98,7 @@ io.on('connection', (socket) => {
 
       // Join socket to room
       socket.join(room);
-      console.log(`  ✓ Socket joined room: '${room}'`);
+      log(`  ✓ Socket joined room: '${room}'`);
 
       // Load last 50 messages from MongoDB for this room
       const previousMessages = await Message.find({ room })
@@ -115,7 +117,7 @@ io.on('connection', (socket) => {
         deletedAt: msg.deletedAt || null,
       }));
 
-      console.log(`  ✓ Loaded ${messages.length} previous messages from DB`);
+      log(`  ✓ Loaded ${messages.length} previous messages from DB`);
 
       // Send message history to the joining user
       socket.emit('messageHistory', {
@@ -144,9 +146,16 @@ io.on('connection', (socket) => {
         users: getUsersByRoom(room),
       });
 
-      console.log(`  ✓ Room join completed\n`);
+      // Load and send whiteboard state to joining user
+      const boardState = boardManager.getBoard(room);
+      socket.emit('loadBoard', {
+        room,
+        strokes: boardState,
+      });
+
+      log(`  ✓ Room join completed\n`);
     } catch (error) {
-      console.error('❌ Error in joinRoom:', error.message);
+      debugError('❌ Error in joinRoom:', error.message);
       socket.emit('error', {
         message: 'Failed to join room. Please try again.',
       });
@@ -163,16 +172,16 @@ io.on('connection', (socket) => {
     const user = getUser(socket.id);
 
     if (!user) {
-      console.error('❌ chatMessage: User not found in session');
+      debugError('❌ chatMessage: User not found in session');
       socket.emit('error', { message: 'User not found. Please rejoin the room.' });
       return;
     }
 
-    console.log(`\n💬 Message from '${user.username}' in room '${user.room}': "${msg}"`);
+    log(`\n💬 Message from '${user.username}' in room '${user.room}': "${msg}"`);
 
     try {
       // Use authenticated user ID from token (more secure than username lookup)
-      console.log(`  ✓ Using authenticated user ID: ${socket.userId}`);
+      log(`  ✓ Using authenticated user ID: ${socket.userId}`);
 
       // Create and save message to MongoDB
       const newMessage = new Message({
@@ -185,7 +194,7 @@ io.on('connection', (socket) => {
       });
 
       const savedMessage = await newMessage.save();
-      console.log(`  ✓ Message saved to DB with ID: ${savedMessage._id}`);
+      log(`  ✓ Message saved to DB with ID: ${savedMessage._id}`);
 
       // Emit message to room
       io.to(user.room).emit('message', {
@@ -196,10 +205,10 @@ io.on('connection', (socket) => {
         edited: false,
       });
 
-      console.log(`  ✓ Message broadcast to room '${user.room}'\n`);
+      log(`  ✓ Message broadcast to room '${user.room}'\n`);
     } catch (error) {
-      console.error('❌ Error saving message:', error.message);
-      console.error('Stack:', error.stack);
+      debugError('❌ Error saving message:', error.message);
+      debugError('Stack:', error.stack);
       socket.emit('error', {
         message: 'Failed to send message. Please try again.',
       });
@@ -222,6 +231,202 @@ io.on('connection', (socket) => {
   });
 
   /**
+   * Whiteboard: Request Board State
+   * - Called when user reconnects or needs current board state
+   */
+  socket.on('requestBoardState', ({ room }) => {
+    if (!room || typeof room !== 'string') {
+      warn('❌ Invalid room in requestBoardState');
+      return;
+    }
+
+    const user = getUser(socket.id);
+    if (!user || user.room !== room) {
+      warn('❌ User not in requested room');
+      return;
+    }
+
+    const boardState = boardManager.getBoard(room);
+    socket.emit('loadBoard', {
+      room,
+      strokes: boardState,
+    });
+
+    log(`🎨 Sent whiteboard state to ${socket.id}: ${boardState.length} strokes`);
+  });
+
+  /**
+   * Whiteboard: Draw Event
+   * - Receives drawing stroke from user
+   * - Validates stroke data
+   * - Saves to board
+   * - Broadcasts to other users in room
+   */
+  socket.on('draw', (strokeData) => {
+    const user = getUser(socket.id);
+
+    if (!user) {
+      socket.emit('error', { message: 'User not found. Please rejoin the room.' });
+      return;
+    }
+
+    // Validate room
+    if (!strokeData || !strokeData.room || strokeData.room !== user.room) {
+      warn('❌ Invalid room in draw event');
+      return;
+    }
+
+    try {
+      // Validate stroke data
+      if (typeof strokeData.x0 !== 'number' || typeof strokeData.y0 !== 'number' ||
+          typeof strokeData.x1 !== 'number' || typeof strokeData.y1 !== 'number') {
+        warn('❌ Invalid coordinates in stroke');
+        return;
+      }
+
+      // Validate coordinates are finite
+      if (!isFinite(strokeData.x0) || !isFinite(strokeData.y0) ||
+          !isFinite(strokeData.x1) || !isFinite(strokeData.y1)) {
+        warn('❌ Stroke contains NaN or Infinity');
+        return;
+      }
+
+      // Validate color and size
+      if (typeof strokeData.color !== 'string' || strokeData.color.length === 0) {
+        warn('❌ Invalid color');
+        return;
+      }
+
+      if (typeof strokeData.size !== 'number' || strokeData.size <= 0 || strokeData.size > 100) {
+        warn('❌ Invalid brush size');
+        return;
+      }
+
+      // Create stroke object for storage
+      const stroke = {
+        x0: strokeData.x0,
+        y0: strokeData.y0,
+        x1: strokeData.x1,
+        y1: strokeData.y1,
+        color: strokeData.color,
+        size: strokeData.size,
+        strokeId: strokeData.strokeId,
+        userId: socket.id,
+        username: user.username,
+        timestamp: new Date(),
+      };
+
+      // Add stroke to board
+      const added = boardManager.addStroke(user.room, stroke);
+
+      if (!added) {
+        debugError('❌ Failed to add stroke to board');
+        return;
+      }
+
+      // Broadcast stroke to other users in room (don't send back to sender)
+      socket.broadcast.to(user.room).emit('draw', strokeData);
+
+      log(`✍️  Draw event from ${user.username} in room ${user.room}`);
+    } catch (error) {
+      debugError('❌ Error in draw event:', error.message);
+      socket.emit('error', { message: 'Failed to process draw event' });
+    }
+  });
+
+  /**
+   * Whiteboard: Clear Board Event
+   * - Clears all strokes from room's whiteboard
+   * - Broadcasts clear event to all users in room
+   */
+  socket.on('clearBoard', ({ room }) => {
+    const user = getUser(socket.id);
+
+    if (!user) {
+      socket.emit('error', { message: 'User not found' });
+      return;
+    }
+
+    if (!room || room !== user.room) {
+      warn('❌ Invalid room in clearBoard');
+      return;
+    }
+
+    try {
+      boardManager.clearBoard(room);
+      
+      // Broadcast clear event to all users in room
+      io.to(room).emit('boardCleared', {
+        room,
+        clearedBy: user.username,
+        timestamp: new Date().toISOString(),
+      });
+
+      log(`🧹 Board cleared in room '${room}' by ${user.username}`);
+    } catch (error) {
+      debugError('❌ Error clearing board:', error.message);
+      socket.emit('error', { message: 'Failed to clear board' });
+    }
+  });
+
+  /**
+   * Whiteboard: Undo Stroke Event (Optional)
+   * - Removes all strokes from current user
+   * - Reloads board for all users
+   */
+  socket.on('undoStroke', ({ room }) => {
+    const user = getUser(socket.id);
+
+    if (!user) {
+      socket.emit('error', { message: 'User not found' });
+      return;
+    }
+
+    if (!room || room !== user.room) {
+      warn('❌ Invalid room in undoStroke');
+      return;
+    }
+
+    try {
+      const removed = boardManager.removeLastUserStroke(room, socket.id);
+
+      if (removed) {
+        const currentBoard = boardManager.getBoard(room);
+        
+        // Reload board for all users
+        io.to(room).emit('strokeUndone', {
+          room,
+          undoneBy: user.username,
+          removedCount: 1,
+          strokes: currentBoard,
+          timestamp: new Date().toISOString(),
+        });
+
+        log(`↩️  Removed last stroke from ${user.username} in room '${room}'`);
+      }
+    } catch (error) {
+      debugError('❌ Error in undoStroke:', error.message);
+      socket.emit('error', { message: 'Failed to undo stroke' });
+    }
+  });
+
+  socket.on('strokeComplete', ({ room, strokeId }) => {
+    const user = getUser(socket.id);
+
+    if (!user) {
+      return;
+    }
+
+    if (!room || room !== user.room) {
+      warn('❌ Invalid room in strokeComplete');
+      return;
+    }
+
+    // Just log it - we store strokeId with each segment
+    log(`✓ Stroke complete from ${user.username}: ${strokeId}`);
+  });
+
+  /**
    * Disconnect Event
    * - Removes user from tracking
    * - Notifies room that user left
@@ -231,7 +436,7 @@ io.on('connection', (socket) => {
     const user = removeUser(socket.id);
 
     if (user) {
-      console.log(`Client disconnected: ${socket.id}`);
+      log(`Client disconnected: ${socket.id}`);
 
       io.to(user.room).emit('message', {
         username: 'Chat System',
@@ -267,7 +472,7 @@ io.on('connection', (socket) => {
       // message.user may be populated (object with username) or an ObjectId/string
       const messageUserId = message.user && message.user._id ? String(message.user._id) : String(message.user);
       if (messageUserId !== String(socket.userId)) {
-        console.warn('Unauthorized edit attempt:', { messageUserId, socketUserId: socket.userId });
+        warn('Unauthorized edit attempt:', { messageUserId, socketUserId: socket.userId });
         if (typeof ack === 'function') ack({ success: false, message: 'Not authorized to edit this message' });
         return;
       }
@@ -303,7 +508,7 @@ io.on('connection', (socket) => {
 
       if (typeof ack === 'function') ack({ success: true, message: 'Message edited', data: { id: message._id, content: message.content } });
     } catch (error) {
-      console.error('❌ editMessage error:', error.message);
+      debugError('editMessage error:', error.message);
       if (typeof ack === 'function') ack({ success: false, message: 'Failed to edit message' });
     }
   });
@@ -329,7 +534,7 @@ io.on('connection', (socket) => {
       // message.user may be populated (object with username) or an ObjectId/string
       const msgUserId = message.user && message.user._id ? String(message.user._id) : String(message.user);
       if (msgUserId !== String(socket.userId)) {
-        console.warn('Unauthorized delete attempt:', { msgUserId, socketUserId: socket.userId });
+        warn('Unauthorized delete attempt:', { msgUserId, socketUserId: socket.userId });
         if (typeof ack === 'function') ack({ success: false, message: 'Not authorized to delete this message' });
         return;
       }
@@ -347,7 +552,7 @@ io.on('connection', (socket) => {
 
       if (typeof ack === 'function') ack({ success: true, message: 'Message deleted', data: { id: message._id } });
     } catch (error) {
-      console.error('❌ deleteMessage error:', error.message);
+      debugError('deleteMessage error:', error.message);
       if (typeof ack === 'function') ack({ success: false, message: 'Failed to delete message' });
     }
   });
@@ -356,7 +561,7 @@ io.on('connection', (socket) => {
    * Handle socket errors
    */
   socket.on('error', (error) => {
-    console.error('Socket error:', error);
+    debugError('Socket error:', error);
   });
 });
 

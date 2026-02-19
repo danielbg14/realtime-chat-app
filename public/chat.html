@@ -28,6 +28,12 @@
     </div>
 
     <div class="chat-container" id="chatContainer">
+      <!-- Tab Navigation -->
+      <div class="tab-buttons">
+        <button class="tab-btn active" data-tab="chat">💬 Chat</button>
+        <button class="tab-btn" data-tab="whiteboard">🎨 Whiteboard</button>
+      </div>
+
       <div class="sidebar">
         <div class="room-title" id="roomDisplay"></div>
         <div class="user-info" id="userInfo"></div>
@@ -35,7 +41,8 @@
         <button class="logout-btn" onclick="logout()">Logout</button>
       </div>
 
-      <div class="main-chat">
+      <!-- Chat Tab -->
+      <div class="main-chat tab-content" id="chatTab" data-tab="chat">
         <div class="chat-header">
           <h2 id="chatTitle"></h2>
         </div>
@@ -60,8 +67,37 @@
           <button id="sendBtn">Send</button>
         </div>
       </div>
+
+      <!-- Whiteboard Tab -->
+      <div class="whiteboard-container tab-content" id="whiteboardTab" data-tab="whiteboard" style="display: none;">
+        <div class="whiteboard-header">
+          <h2>Collaborative Whiteboard 🎨</h2>
+        </div>
+
+        <div class="whiteboard-controls">
+          <div class="control-group">
+            <label for="colorPicker">Color:</label>
+            <input type="color" id="colorPicker" value="#000000" />
+          </div>
+
+          <div class="control-group">
+            <label for="brushSize">Brush Size:</label>
+            <input type="range" id="brushSize" min="1" max="30" value="3" />
+            <span id="brushSizeValue">3</span>px
+          </div>
+
+          <div class="control-group">
+            <button id="clearBoardBtn" class="control-btn danger">🧹 Clear Board</button>
+            <button id="undoBtn" class="control-btn">↩️ Undo</button>
+          </div>
+        </div>
+
+        <canvas id="whiteboard" class="whiteboard-canvas"></canvas>
+      </div>
     </div>
 
+    <script src="debug.js"></script>
+    <script src="whiteboard.js"></script>
     <script src="chat-script.js"></script>
   </body>
 </html>

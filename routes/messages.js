@@ -1,6 +1,7 @@
 const express = require('express');
 const Message = require('../models/Message');
 const { verifyToken } = require('../middleware/auth');
+const { error: debugError } = require('../debug');
 
 const router = express.Router();
 
@@ -43,7 +44,7 @@ router.put('/:id', verifyToken, async (req, res) => {
       editedAt: message.editedAt,
     }});
   } catch (error) {
-    console.error('❌ Edit message error:', error.message);
+    debugError('Edit message error:', error.message);
     return res.status(500).json({ success: false, message: 'Failed to edit message' });
   }
 });
@@ -67,7 +68,7 @@ router.delete('/:id', verifyToken, async (req, res) => {
 
     return res.json({ success: true, message: 'Message deleted', data: { id: message._id, deletedAt: message.deletedAt } });
   } catch (error) {
-    console.error('❌ Delete message error:', error.message);
+    debugError('Delete message error:', error.message);
     return res.status(500).json({ success: false, message: 'Failed to delete message' });
   }
 });

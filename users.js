@@ -4,12 +4,10 @@
  * This module handles in-memory tracking of connected users and their sessions.
  * For persistent user authentication, see models/User.js which stores users in MongoDB.
  * 
- * TODO: When implementing JWT authentication:
- * 1. Verify the JWT token on socket connection
- * 2. Store the decoded user ID from the token
- * 3. Use that ID to fetch user profile from MongoDB
- * 4. Validate existing user in DB before allowing room access
+ * JWT authentication is implemented via middleware/auth.js
  */
+
+const { log } = require('./debug');
 
 const users = [];
 
@@ -33,7 +31,7 @@ function addUser(socketId, username, room, userId) {
   };
   
   users.push(user);
-  console.log(`User '${username}' added to room '${room}'`);
+  log(`User '${username}' added to room '${room}'`);
   
   return user;
 }
@@ -50,7 +48,7 @@ function removeUser(socketId) {
   
   if (index !== -1) {
     const removedUser = users.splice(index, 1)[0];
-    console.log(`User '${removedUser.username}' removed from session`);
+    log(`User '${removedUser.username}' removed from session`);
     return removedUser;
   }
   
@@ -98,18 +96,12 @@ function getAllUsers() {
 
 /**
  * Add authenticated user from MongoDB
- * This should be called after verifying a user's credentials with the database
- * 
- * TODO: Update this method when JWT authentication is implemented
- * Should extract user data from verified JWT token
- * 
- * Example usage after auth implementation:
- * const user = await User.findById(decodedToken.userId);
- * addAuthenticatedUser(socketId, user._id, user.username, room);
+ * This is called after verifying the user's JWT token and credentials
+ * User data is extracted from the verified JWT token via middleware/auth.js
  * 
  * @param {string} socketId - Unique socket connection ID
- * @param {string} userId - MongoDB User document ID
- * @param {string} username - User's username from DB
+ * @param {string} userId - MongoDB User document ID (from JWT token)
+ * @param {string} username - User's username (from JWT token)
  * @param {string} room - Chat room to join
  * @returns {Object} User session object
  */
@@ -124,7 +116,7 @@ function addAuthenticatedUser(socketId, userId, username, room) {
   };
   
   users.push(user);
-  console.log(`Authenticated user '${username}' (${userId}) added to room '${room}'`);
+  log(`Authenticated user '${username}' (${userId}) added to room '${room}'`);
   
   return user;
 }

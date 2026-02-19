@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+const { log, error: debugError, warn } = require('../debug');
 
 /**
  * Middleware to verify JWT token from request headers
@@ -20,7 +21,7 @@ const verifyToken = (req, res, next) => {
     req.user = decoded;
     next();
   } catch (error) {
-    console.error('❌ Token verification failed:', error.message);
+    debugError('Token verification failed:', error.message);
     return res.status(401).json({
       success: false,
       message: 'Invalid or expired token. Please login again.',
@@ -53,15 +54,15 @@ const verifySocketToken = (socket) => {
     const token = socket.handshake.auth.token;
 
     if (!token) {
-      console.error('❌ Socket connection: No token provided');
+      debugError('Socket connection: No token provided');
       return null;
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    console.log(`✓ Socket authenticated: ${decoded.username}`);
+    log(`Socket authenticated: ${decoded.username}`);
     return decoded;
   } catch (error) {
-    console.error('❌ Socket token verification failed:', error.message);
+    debugError('Socket token verification failed:', error.message);
     return null;
   }
 };

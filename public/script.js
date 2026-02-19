@@ -59,7 +59,7 @@ joinForm.addEventListener("submit", (e) => {
 function sendMessage() {
   const msg = messageInput.value.trim();
   if (msg) {
-    console.log("📤 Sending message:", msg);
+    log('Sending message:', msg);
     socket.emit("chatMessage", msg);
     messageInput.value = "";
     typingIndicator.textContent = "";
@@ -90,7 +90,7 @@ messageInput.addEventListener("input", () => {
 
 // Receive message
 socket.on("message", (data) => {
-  console.log("📩 Message received:", data);
+  log('Message received:', data);
   // Clear typing indicator when message arrives
   typingIndicator.textContent = "";
   clearTimeout(typingIndicatorTimeout);
@@ -115,7 +115,7 @@ socket.on("message", (data) => {
 
 // Load message history when joining room
 socket.on("messageHistory", (data) => {
-  console.log(`📚 Loading ${data.count} messages from history`);
+  log(`Loading ${data.count} messages from history`);
   messagesContainer.innerHTML = "";
   
   data.messages.forEach((msg) => {
@@ -172,15 +172,15 @@ socket.on("userTyping", (data) => {
 
 // Error handling
 socket.on("error", (error) => {
-  console.error("❌ Socket error:", error);
+  error('Socket error:', error);
   errorMessage.textContent = error.message || "An error occurred";
 });
 
 // Connection events for debugging
 socket.on("connect", () => {
-  console.log("✓ Connected to server");
+  log("Connected to server");
 });
 
 socket.on("disconnect", () => {
-  console.log("✗ Disconnected from server");
+  log('Disconnected from server');
 });

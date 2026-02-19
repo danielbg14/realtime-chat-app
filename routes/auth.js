@@ -1,6 +1,7 @@
 const express = require('express');
 const User = require('../models/User');
 const { generateToken } = require('../middleware/auth');
+const { log, error: debugError } = require('../debug');
 
 const router = express.Router();
 
@@ -44,7 +45,7 @@ router.post('/register', async (req, res) => {
     // Generate JWT token
     const token = generateToken(newUser._id, newUser.username);
 
-    console.log(`📝 New user registered: ${username}`);
+    log(`New user registered: ${username}`);
 
     res.status(201).json({
       success: true,
@@ -57,7 +58,7 @@ router.post('/register', async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('❌ Registration error:', error.message);
+    debugError('Registration error:', error.message);
     res.status(500).json({
       success: false,
       message: 'Registration failed. Please try again.',
@@ -104,7 +105,7 @@ router.post('/login', async (req, res) => {
     // Generate JWT token
     const token = generateToken(user._id, user.username);
 
-    console.log(`🔓 User logged in: ${username}`);
+    log(`User logged in: ${username}`);
 
     res.json({
       success: true,
@@ -117,7 +118,7 @@ router.post('/login', async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('❌ Login error:', error.message);
+    debugError('Login error:', error.message);
     res.status(500).json({
       success: false,
       message: 'Login failed. Please try again.',
@@ -147,7 +148,7 @@ router.get('/me', require('../middleware/auth').verifyToken, async (req, res) =>
       user,
     });
   } catch (error) {
-    console.error('❌ Get user info error:', error.message);
+    debugError('Get user info error:', error.message);
     res.status(500).json({
       success: false,
       message: 'Failed to get user info',

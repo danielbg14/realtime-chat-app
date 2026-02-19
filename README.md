@@ -26,6 +26,8 @@ It is designed as a lightweight example of real-time communication patterns usin
 * Typing indicators (debounced)
 * Join/leave system notifications
 * Responsive frontend (HTML/CSS/Vanilla JS)
+* Collaborative whiteboard with real-time drawing sync
+* Message editing and deletion
 
 ---
 
@@ -101,14 +103,18 @@ Client → Socket.IO → Server → Room Broadcast → Connected Clients (room)
 
 ## Socket Events
 
-| Event         | Direction       | Description                              |
-| ------------- | --------------- | ---------------------------------------- |
-| `joinRoom`    | Client → Server | Join a specific chat room                |
-| `chatMessage` | Client → Server | Send a message                           |
-| `typing`      | Client → Server | Notify typing activity                   |
-| `message`     | Server → Client | Deliver messages or system notifications |
-| `roomUsers`   | Server → Client | Update active users list                 |
-| `userTyping`  | Server → Client | Display typing indicator                 |
+| Event              | Direction       | Description                              |
+| ------------------ | --------------- | ---------------------------------------- |
+| `joinRoom`         | Client → Server | Join a specific chat room                |
+| `chatMessage`      | Client → Server | Send a message                           |
+| `typing`           | Client → Server | Notify typing activity                   |
+| `message`          | Server → Client | Deliver messages or system notifications |
+| `roomUsers`        | Server → Client | Update active users list                 |
+| `userTyping`       | Server → Client | Display typing indicator                 |
+| `draw`             | Client → Server | Send drawing stroke to whiteboard        |
+| `loadBoard`        | Server → Client | Load existing drawing strokes            |
+| `clearBoard`       | Client → Server | Clear all strokes from whiteboard        |
+| `undoStroke`       | Client → Server | Undo last drawing stroke                 |
 
 ---
 
@@ -117,13 +123,29 @@ Client → Socket.IO → Server → Room Broadcast → Connected Clients (room)
 ```
 .
 ├── public
+│   ├── auth.html
+│   ├── chat.html
+│   ├── chat-script.js
+│   ├── debug.js
 │   ├── index.html
 │   ├── script.js
-│   └── style.css
+│   ├── style.css
+│   └── whiteboard.js
+├── routes
+│   ├── auth.js
+│   └── messages.js
+├── middleware
+│   └── auth.js
+├── models
+│   ├── User.js
+│   └── Message.js
 ├── README.md
 ├── index.js
+├── users.js
+├── boards.js
+├── debug.js
 ├── package.json
-└── users.js
+└── .env
 ```
 
 ---

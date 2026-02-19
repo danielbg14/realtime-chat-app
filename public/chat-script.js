@@ -71,7 +71,7 @@ joinForm.addEventListener('submit', (e) => {
   }
 
   currentRoom = room;
-  console.log(`🚪 Joining room: ${room}`);
+  log(`Joining room: ${room}`);
 
   // Emit joinRoom event with room name only
   // Username comes from JWT token on server
@@ -98,7 +98,7 @@ joinForm.addEventListener('submit', (e) => {
 function sendMessage() {
   const msg = messageInput.value.trim();
   if (msg) {
-    console.log('📤 Sending message:', msg);
+    log('Sending message:', msg);
     socket.emit('chatMessage', msg);
     messageInput.value = '';
     typingIndicator.textContent = '';
@@ -132,7 +132,7 @@ messageInput.addEventListener('input', () => {
  * Receive message
  */
 socket.on('message', (data) => {
-  console.log('📩 Message received:', data);
+  log('Message received:', data);
   typingIndicator.textContent = '';
   clearTimeout(typingIndicatorTimeout);
   const messageEl = createMessageElement({
@@ -152,7 +152,7 @@ socket.on('message', (data) => {
  * Load message history when joining room
  */
 socket.on('messageHistory', (data) => {
-  console.log(`📚 Loading ${data.count} messages from history`);
+  log(`Loading ${data.count} messages from history`);
   messagesContainer.innerHTML = '';
   
   data.messages.forEach((msg) => {
@@ -257,9 +257,9 @@ socket.on('messageHistory', (data) => {
     const trimmed = newContent.trim();
     if (!trimmed) return alert('Message cannot be empty');
 
-    console.log('📝 Emitting editMessage', { id: msg.id, content: trimmed });
+    log('Emitting editMessage', { id: msg.id, content: trimmed });
     socket.emit('editMessage', { id: msg.id, content: trimmed }, (res) => {
-      console.log('✉️ editMessage ack:', res);
+      log('editMessage ack:', res);
       if (!res || !res.success) return alert('Edit failed: ' + (res?.message || 'Unknown'));
       // Update UI optimistically (server will also broadcast messageEdited to all clients)
       const el = messagesContainer.querySelector(`[data-id="${msg.id}"]`);
@@ -274,9 +274,9 @@ socket.on('messageHistory', (data) => {
     const ok = confirm('Delete this message?');
     if (!ok) return;
 
-    console.log('🗑️ Emitting deleteMessage', { id: msg.id });
+    log('Emitting deleteMessage', { id: msg.id });
     socket.emit('deleteMessage', { id: msg.id }, (res) => {
-      console.log('✉️ deleteMessage ack:', res);
+      log('deleteMessage ack:', res);
       if (!res || !res.success) return alert('Delete failed: ' + (res?.message || 'Unknown'));
       const el = messagesContainer.querySelector(`[data-id="${msg.id}"]`);
       if (el) {
@@ -350,7 +350,7 @@ socket.on('userTyping', (data) => {
  * Error handling
  */
 socket.on('error', (error) => {
-  console.error('❌ Socket error:', error);
+  error('Socket error:', error);
   if (error.message) {
     errorMessage.textContent = '❌ ' + error.message;
   }
@@ -360,14 +360,143 @@ socket.on('error', (error) => {
  * Connection events for debugging
  */
 socket.on('connect', () => {
-  console.log('✓ Connected to server');
+  log('Connected to server');
 });
 
 socket.on('disconnect', () => {
-  console.log('✗ Disconnected from server');
+  log('Disconnected from server');
 });
 
 socket.on('connect_error', (error) => {
-  console.error('❌ Connection error:', error.message);
+  error('Connection error:', error.message);
   errorMessage.textContent = '❌ Connection failed: ' + error.message;
+});
+/**
+ * ==========================================
+ * WHITEBOARD FUNCTIONALITY
+ * ==========================================
+ */
+
+let whiteboard = null;
+
+// Tab switching functionality
+const tabButtons = document.querySelectorAll('.tab-btn');
+const tabContents = document.querySelectorAll('.tab-content');
+
+tabButtons.forEach((btn) => {
+  btn.addEventListener('click', () => {
+    const tabName = btn.getAttribute('data-tab');
+
+    // Remove active class from all buttons
+    tabButtons.forEach((b) => b.classList.remove('active'));
+    // Add active class to clicked button
+    btn.classList.add('active');
+
+    // Hide all tab contents
+    tabContents.forEach((content) => {
+      content.style.display = 'none';
+    });
+
+    // Show selected tab content
+    const selectedTab = document.getElementById(tabName + 'Tab');
+    if (selectedTab) {
+      selectedTab.style.display = 'flex';
+
+      // If switching to whiteboard, trigger canvas resize
+      if (tabName === 'whiteboard' && whiteboard) {
+        // Use multiple retries to ensure layout is calculated
+        const tryResize = (attempt = 0) => {
+          whiteboard.initCanvasSize();
+          log(`Canvas resize attempt ${attempt + 1}: ${whiteboard.canvas.width} x ${whiteboard.canvas.height}`);
+          
+          // If width is still 0, retry with increased delay
+          if (whiteboard.canvas.width === 0 && attempt < 5) {
+            setTimeout(() => tryResize(attempt + 1), 100 * (attempt + 1));
+          }
+        };
+
+        // First try on next animation frame
+        requestAnimationFrame(() => {
+          setTimeout(tryResize, 50);
+        });
+      }
+    }
+  });
+});
+
+/**
+ * Initialize whiteboard when user joins room
+ */
+function initializeWhiteboard() {
+  if (whiteboard) {
+    return; // Already initialized
+  }
+
+  try {
+    whiteboard = new Whiteboard('whiteboard', socket, {
+      defaultColor: '#000000',
+      defaultBrushSize: 3,
+    });
+
+    // Set the room for the whiteboard
+    whiteboard.setRoom(currentRoom);
+
+    // Initial canvas sizing (might be re-done when tab is clicked)
+    setTimeout(() => {
+      whiteboard.initCanvasSize();
+    }, 200);
+
+    // Color picker
+    const colorPicker = document.getElementById('colorPicker');
+    if (colorPicker) {
+      colorPicker.addEventListener('change', (e) => {
+        whiteboard.setColor(e.target.value);
+      });
+    }
+
+    // Brush size slider
+    const brushSize = document.getElementById('brushSize');
+    const brushSizeValue = document.getElementById('brushSizeValue');
+
+    if (brushSize && brushSizeValue) {
+      brushSize.addEventListener('input', (e) => {
+        const size = e.target.value;
+        brushSizeValue.textContent = size;
+        whiteboard.setBrushSize(size);
+      });
+    }
+
+    // Clear board button
+    const clearBoardBtn = document.getElementById('clearBoardBtn');
+    if (clearBoardBtn) {
+      clearBoardBtn.addEventListener('click', () => {
+        if (confirm('Are you sure you want to clear the whiteboard?\nThis will erase the board for everyone in this room.')) {
+          whiteboard.clearBoard();
+        }
+      });
+    }
+
+    // Undo button
+    const undoBtn = document.getElementById('undoBtn');
+    if (undoBtn) {
+      undoBtn.addEventListener('click', () => {
+        whiteboard.undoStroke();
+      });
+    }
+
+    log('Whiteboard initialized');
+  } catch (error) {
+    error('Failed to initialize whiteboard:', error);
+  }
+}
+
+/**
+ * Modify joinRoom to initialize whiteboard
+ */
+const originalJoinFormSubmit = joinForm.addEventListener.toString();
+
+// We need to initialize whiteboard after the server responds
+socket.on('messageHistory', () => {
+  // Delay initialization slightly to ensure DOM is ready
+  setTimeout(initializeWhiteboard, 100);
 });
