@@ -113,8 +113,7 @@ io.on('connection', (socket) => {
         content: msg.content,
         timestamp: msg.timestamp ? msg.timestamp.toISOString() : new Date().toISOString(),
         edited: msg.edited,
-        deleted: msg.deleted || false,
-        deletedAt: msg.deletedAt || null,
+        editedAt: msg.editedAt,
       }));
 
       log(`  ✓ Loaded ${messages.length} previous messages from DB`);
@@ -539,15 +538,12 @@ io.on('connection', (socket) => {
         return;
       }
 
-      // Soft delete
-      message.deleted = true;
-      message.deletedAt = new Date();
-      await message.save();
+      // Hard delete - remove from database
+      await Message.findByIdAndDelete(id);
 
       // Notify room that message was deleted
       io.to(user.room).emit('messageDeleted', {
-        id: message._id,
-        deletedAt: message.deletedAt,
+        id: id,
       });
 
       if (typeof ack === 'function') ack({ success: true, message: 'Message deleted', data: { id: message._id } });

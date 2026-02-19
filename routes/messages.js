@@ -62,11 +62,10 @@ router.delete('/:id', verifyToken, async (req, res) => {
       return res.status(403).json({ success: false, message: 'Not authorized to delete this message' });
     }
 
-    message.deleted = true;
-    message.deletedAt = new Date();
-    await message.save();
+    // Hard delete - remove from database
+    await Message.findByIdAndDelete(id);
 
-    return res.json({ success: true, message: 'Message deleted', data: { id: message._id, deletedAt: message.deletedAt } });
+    return res.json({ success: true, message: 'Message deleted', data: { id: id } });
   } catch (error) {
     debugError('Delete message error:', error.message);
     return res.status(500).json({ success: false, message: 'Failed to delete message' });

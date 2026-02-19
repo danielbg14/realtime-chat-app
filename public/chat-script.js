@@ -141,7 +141,6 @@ socket.on('message', (data) => {
     content: data.text,
     timestamp: data.timestamp,
     edited: data.edited || false,
-    deleted: data.deleted || false,
   });
 
   messagesContainer.appendChild(messageEl);
@@ -162,7 +161,6 @@ socket.on('messageHistory', (data) => {
       content: msg.content,
       timestamp: msg.timestamp,
       edited: msg.edited || false,
-      deleted: msg.deleted || false,
     });
     messagesContainer.appendChild(messageEl);
   });
@@ -180,16 +178,6 @@ socket.on('messageHistory', (data) => {
 
     if (msg.username === 'Chat System') {
       el.textContent = msg.content || msg.text || 'System';
-      return el;
-    }
-
-    // Message deleted placeholder
-    if (msg.deleted) {
-      el.innerHTML = `
-        <div class="message-username">${msg.username}</div>
-        <div class="message-text"><em>Message deleted</em></div>
-        <div class="message-time">${formatTimestamp(msg.timestamp)}</div>
-      `;
       return el;
     }
 
@@ -278,13 +266,9 @@ socket.on('messageHistory', (data) => {
     socket.emit('deleteMessage', { id: msg.id }, (res) => {
       log('deleteMessage ack:', res);
       if (!res || !res.success) return alert('Delete failed: ' + (res?.message || 'Unknown'));
+      // Remove message from DOM
       const el = messagesContainer.querySelector(`[data-id="${msg.id}"]`);
-      if (el) {
-        const textEl = el.querySelector('.message-text');
-        if (textEl) textEl.innerHTML = '<em>Message deleted</em>';
-        const controls = el.querySelector('.message-controls');
-        if (controls) controls.remove();
-      }
+      if (el) el.remove();
     });
   }
 
@@ -296,15 +280,10 @@ socket.on('messageHistory', (data) => {
     if (textEl) textEl.innerHTML = escapeHtml(content) + (edited ? ' <small>(edited)</small>' : '');
   });
 
-  // Update a message in the DOM when deleted
+  // Remove a message from the DOM when deleted
   socket.on('messageDeleted', ({ id }) => {
     const el = messagesContainer.querySelector(`[data-id="${id}"]`);
-    if (!el) return;
-    const textEl = el.querySelector('.message-text');
-    if (textEl) textEl.innerHTML = '<em>Message deleted</em>';
-    // remove controls if present
-    const controls = el.querySelector('.message-controls');
-    if (controls) controls.remove();
+    if (el) el.remove();
   });
 
 /**

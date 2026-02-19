@@ -28,14 +28,6 @@ const messageSchema = new mongoose.Schema({
     type: Date,
     default: null,
   },
-  deleted: {
-    type: Boolean,
-    default: false,
-  },
-  deletedAt: {
-    type: Date,
-    default: null,
-  },
   private: {
     type: Boolean,
     default: false,
